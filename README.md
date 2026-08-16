@@ -23,11 +23,9 @@ To send SMS rather than iMessage, the Mac must already be able to send SMS throu
 
 ## Download
 
-In the examples below, replace `OWNER` with the GitHub user or organization that owns the repository.
-
 ### Download a ZIP
 
-1. Open `https://github.com/OWNER/TeamText`.
+1. Open `https://github.com/APMonitor/TeamText`.
 2. Select **Code**, then **Download ZIP**.
 3. Extract `TeamText-main.zip`.
 4. Open Terminal and change to the extracted folder:
@@ -39,7 +37,7 @@ In the examples below, replace `OWNER` with the GitHub user or organization that
 ### Clone with Git
 
 ```bash
-git clone https://github.com/OWNER/TeamText.git
+git clone https://github.com/APMonitor/TeamText.git
 cd TeamText
 ```
 
@@ -256,17 +254,6 @@ npm run build
 ```
 
 If the virtual environment no longer exists, recreate it with the installation steps above.
-
-## Publishing this prepared repository
-
-Create an empty GitHub repository named `TeamText`, then run the following from this folder. Replace `OWNER` with your GitHub user or organization:
-
-```bash
-git remote add origin https://github.com/OWNER/TeamText.git
-git push -u origin main
-```
-
-After publishing, replace the `OWNER` placeholders in this README with the repository owner and push that documentation update.
 
 ## License
 
