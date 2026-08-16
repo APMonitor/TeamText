@@ -1,0 +1,35 @@
+{
+  "name": "teamtext",
+  "version": "0.1.0",
+  "description": "A local macOS app for personalized individual and household team texts through Apple Messages.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "node dev.mjs",
+    "dev:server": "node --watch server/index.js",
+    "dev:web": "vite --host 127.0.0.1 --config web/vite.config.js",
+    "build": "vite build --config web/vite.config.js",
+    "check:js": "node --check dev.mjs && node --check server/index.js && node --check web/vite.config.js",
+    "check:python": "python3 -c \"import ast,pathlib; ast.parse(pathlib.Path('server/scripts/send_messages.py').read_text())\"",
+    "test": "node --test",
+    "check": "npm run check:js && npm run check:python && npm test && npm run build",
+    "setup:python": "python3 -m venv .venv && .venv/bin/python -m pip install --upgrade pip && .venv/bin/python -m pip install -r requirements.txt",
+    "test:dry-run": "node scripts/smoke-send.mjs",
+    "prestart": "npm run build",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.5",
+    "vite": "^8.2.1"
+  }
+}
