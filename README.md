@@ -93,7 +93,7 @@ SMS_DRY_RUN=1 npm start
 
 Stop that process with `Control-C` and restart with `npm start` when you are ready to send real messages.
 
-<img src="examples/2-roster.png" alt="Roster Review" style="width: 100%; height: auto;">
+<img src="examples/2-recipients.png" alt="Roster Review" style="width: 100%; height: auto;">
 
 ## Prepare a roster
 
