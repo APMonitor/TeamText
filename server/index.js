@@ -14,6 +14,7 @@ const READY_MARKER = "__TEAMTEXT_SEND_READY__";
 const PROGRESS_MARKER = "__TEAMTEXT_SEND_PROGRESS__";
 const STATE_MARKER = "__TEAMTEXT_SEND_STATE__";
 const MAX_TARGETS = 5_000;
+const MAX_GROUP_RECIPIENTS = 20;
 const MAX_LABEL_LENGTH = 240;
 const MAX_ADDRESS_LENGTH = 160;
 const MAX_BODY_LENGTH = 10_000;
@@ -38,6 +39,12 @@ function normalizeTargetId(value) {
     return value;
   }
   return null;
+}
+
+function addressKey(value) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 11 && digits.startsWith("1")) return digits.slice(1);
+  return digits || value.toLocaleLowerCase();
 }
 
 function validateTargets(value) {
@@ -70,7 +77,12 @@ function validateTargets(value) {
     const target = entry && typeof entry === "object" && !Array.isArray(entry) ? entry : {};
     const targetId = normalizeTargetId(target.id);
     const recipientLabel = cleanText(target.recipient_label);
-    const address = cleanText(target.address);
+    const addressValues = Array.isArray(target.addresses)
+      ? target.addresses
+      : target.address === undefined
+        ? []
+        : [target.address];
+    const addresses = [];
     const body = typeof target.body === "string" ? target.body.replace(/\r\n/g, "\n").trim() : "";
     const issues = [];
 
@@ -89,10 +101,36 @@ function validateTargets(value) {
     } else if (recipientLabel.length > MAX_LABEL_LENGTH) {
       issues.push(`recipient_label must be ${MAX_LABEL_LENGTH} characters or fewer`);
     }
-    if (!address) {
-      issues.push("address is required");
-    } else if (address.length > MAX_ADDRESS_LENGTH) {
-      issues.push(`address must be ${MAX_ADDRESS_LENGTH} characters or fewer`);
+    if (!addressValues.length) {
+      issues.push("at least one address is required");
+    } else if (addressValues.length > MAX_GROUP_RECIPIENTS) {
+      issues.push(`no more than ${MAX_GROUP_RECIPIENTS} recipients may be included in one group`);
+    } else {
+      const seenAddresses = new Set();
+      addressValues.forEach((value) => {
+        if (typeof value !== "string") {
+          issues.push("each address must be a string");
+          return;
+        }
+        const address = value.trim();
+        if (!address) {
+          issues.push("addresses cannot be blank");
+        } else if (address.length > MAX_ADDRESS_LENGTH) {
+          issues.push(`each address must be ${MAX_ADDRESS_LENGTH} characters or fewer`);
+        } else if (/[;,]/.test(address)) {
+          issues.push("each address must contain exactly one phone number");
+        } else if (/[\u0000-\u001f\u007f]/.test(address)) {
+          issues.push("addresses cannot contain control characters");
+        } else {
+          const key = addressKey(address);
+          if (seenAddresses.has(key)) {
+            issues.push("addresses must be unique within a group");
+          } else {
+            seenAddresses.add(key);
+            addresses.push(address);
+          }
+        }
+      });
     }
     if (body.length < 5) {
       issues.push("body must contain at least 5 characters");
@@ -113,7 +151,7 @@ function validateTargets(value) {
     targets.push({
       target_id: targetId,
       recipient_label: recipientLabel,
-      address,
+      addresses,
       body,
     });
   });

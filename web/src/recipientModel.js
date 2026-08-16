@@ -44,42 +44,70 @@ function textNumberKey(value) {
   return `intl:${digits}`;
 }
 
+export function splitTextNumbers(value) {
+  const numbers = String(value ?? "").split(/[;,]/).map(clean).filter(Boolean);
+  if (!numbers.length) return [];
+
+  const seen = new Set();
+  return numbers.filter((number) => {
+    const key = looksLikeTextNumber(number)
+      ? textNumberKey(number)
+      : `raw:${number.toLocaleLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 export function buildRecipientUnits({ rows, deliveryMode, nameColumn, phoneColumn, columns }) {
   if (deliveryMode === "individual") {
     return rows.map((row) => {
       const athleteName = clean(row.values[nameColumn]);
+      const addresses = splitTextNumbers(row.values[phoneColumn]);
+      const address = addresses.join("; ");
       return {
         id: row.id,
         rows: [row],
-        values: row.values,
+        values: { ...row.values, [phoneColumn]: address },
         name: athleteName || `Spreadsheet row ${row.sourceRow}`,
-        address: clean(row.values[phoneColumn]),
+        address,
+        addresses,
         athleteNames: athleteName,
         athleteCount: athleteName ? 1 : 0,
+        recipientCount: addresses.length,
       };
     });
   }
 
   const households = new Map();
   rows.forEach((row) => {
-    const address = clean(row.values[phoneColumn]);
-    const key = looksLikeTextNumber(address) ? textNumberKey(address) : `row:${row.id}`;
-    const group = households.get(key) || [];
-    group.push(row);
+    const addresses = splitTextNumbers(row.values[phoneColumn]);
+    const isValidGroup = addresses.length > 0 && addresses.every(looksLikeTextNumber);
+    const key = isValidGroup
+      ? `group:${addresses.map(textNumberKey).sort().join("|")}`
+      : `row:${row.id}`;
+    const group = households.get(key) || { addresses, rows: [] };
+    group.rows.push(row);
     households.set(key, group);
   });
 
-  return [...households.values()].map((householdRows, index) => {
+  return [...households.values()].map((household, index) => {
+    const householdRows = household.rows;
     const athleteNames = naturalList(householdRows.map((row) => row.values[nameColumn]));
     const sourceRows = naturalList(householdRows.map((row) => String(row.sourceRow)));
+    const values = aggregateValues(householdRows, columns);
+    const address = household.addresses.join("; ");
+    values[phoneColumn] = address;
     return {
       id: `household-${index + 1}`,
       rows: householdRows,
-      values: aggregateValues(householdRows, columns),
+      values,
       name: athleteNames || `Spreadsheet rows ${sourceRows}`,
-      address: clean(householdRows[0]?.values[phoneColumn]),
+      address,
+      addresses: household.addresses,
       athleteNames,
       athleteCount: householdRows.length,
+      recipientCount: household.addresses.length,
     };
   });
 }

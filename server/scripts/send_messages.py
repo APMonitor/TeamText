@@ -26,6 +26,35 @@ DEFAULT_PAUSE_AFTER_SEND = 1.25
 READY_MARKER = "__TEAMTEXT_SEND_READY__"
 PROGRESS_MARKER = "__TEAMTEXT_SEND_PROGRESS__"
 STATE_MARKER = "__TEAMTEXT_SEND_STATE__"
+GROUP_SEND_TIMEOUT = 20.0
+GROUP_SEND_SCRIPT = r'''
+set recipientHandles to paragraphs of (system attribute "TEAMTEXT_GROUP_RECIPIENTS")
+set messageBody to system attribute "TEAMTEXT_GROUP_BODY"
+
+tell application "Messages"
+    set smsAccounts to every account whose enabled is true and service type is SMS
+    if (count of smsAccounts) is 0 then return "no_sms_account"
+    set targetAccount to item 1 of smsAccounts
+
+    set groupParticipants to {}
+    repeat with recipientHandle in recipientHandles
+        set end of groupParticipants to participant (contents of recipientHandle) of targetAccount
+    end repeat
+
+    try
+        set targetChat to make new chat with properties {participants:groupParticipants}
+    on error
+        return "compose_failed"
+    end try
+
+    try
+        send messageBody to targetChat
+    on error
+        return "send_unknown"
+    end try
+    return "submitted"
+end tell
+'''
 
 cancel_requested = False
 pause_requested = False
@@ -87,6 +116,25 @@ def e164(raw: str, region: str = "US") -> str | None:
     return None
 
 
+def normalized_recipients(message: dict) -> list[str] | None:
+    raw_addresses = message.get("addresses")
+    if not isinstance(raw_addresses, list) or not raw_addresses:
+        legacy_address = message.get("address")
+        raw_addresses = [legacy_address] if legacy_address else []
+
+    recipients = []
+    seen = set()
+    for raw_address in raw_addresses:
+        if not isinstance(raw_address, str) or ";" in raw_address or "," in raw_address:
+            return None
+        number = e164(raw_address)
+        if not number or number in seen:
+            return None
+        seen.add(number)
+        recipients.append(number)
+    return recipients or None
+
+
 def frontmost_app_name() -> str:
     try:
         result = subprocess.check_output(
@@ -105,6 +153,50 @@ def frontmost_app_name() -> str:
 def open_compose_to(number_e164: str) -> None:
     subprocess.run(["osascript", "-e", 'tell application "Messages" to activate'], check=False)
     subprocess.run(["open", f"sms:{number_e164}"], check=True)
+
+
+def stop_subprocess(process: subprocess.Popen) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=1.0)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=1.0)
+
+
+def send_group_message(recipients: list[str], body: str) -> tuple[str, str | None]:
+    environment = os.environ.copy()
+    environment["TEAMTEXT_GROUP_RECIPIENTS"] = "\n".join(recipients)
+    environment["TEAMTEXT_GROUP_BODY"] = body
+    process = subprocess.Popen(
+        ["osascript", "-e", GROUP_SEND_SCRIPT],
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    )
+    started_at = time.monotonic()
+    while process.poll() is None:
+        if cancel_requested:
+            stop_subprocess(process)
+            return "unknown", "Group send was interrupted. Check Messages before retrying."
+        if time.monotonic() - started_at >= GROUP_SEND_TIMEOUT:
+            stop_subprocess(process)
+            return "unknown", "Group send timed out. Check Messages before retrying."
+        time.sleep(0.1)
+
+    output = (process.stdout.read() if process.stdout else "").strip()
+    if process.returncode != 0:
+        return "unknown", "Messages did not confirm the group send. Check Messages before retrying."
+    if output == "submitted":
+        return "submitted", None
+    if output == "no_sms_account":
+        return "failed", "No enabled SMS account is available in Messages for group texting."
+    if output == "compose_failed":
+        return "failed", "Messages could not create the recipient group. Nothing was sent."
+    return "unknown", "Messages did not confirm the group send. Check Messages before retrying."
 
 
 def type_and_send(body: str) -> bool:
@@ -240,10 +332,6 @@ def main() -> None:
     print(READY_MARKER, file=sys.stderr, flush=True)
     can_send = cancellable_sleep(0.1)
 
-    if can_send and not DRY_RUN:
-        subprocess.run(["open", "-a", "Messages"], check=False)
-        can_send = cancellable_sleep(1.0)
-
     for index, message in enumerate(messages if can_send else []):
         if not isinstance(message, dict):
             continue
@@ -257,21 +345,21 @@ def main() -> None:
             break
 
         body = str(message.get("body", "")).replace("\r\n", "\n").strip()
-        number = e164(message.get("address", ""))
+        recipients = normalized_recipients(message)
 
         if len(body) < MIN_MSG_CHARS:
             result["error"] = f"Message too short ({len(body)} chars)."
             finish_result(index, result)
             continue
 
-        if not number:
-            result["error"] = "Invalid or missing phone number."
+        if not recipients:
+            result["error"] = "Invalid, duplicate, or missing phone number in recipient group."
             finish_result(index, result)
             continue
 
         try:
-            if not DRY_RUN:
-                open_compose_to(number)
+            if not DRY_RUN and len(recipients) == 1:
+                open_compose_to(recipients[0])
                 if not wait_for_messages_frontmost():
                     result["status"] = "cancelled" if cancel_requested else "failed"
                     result["error"] = (
@@ -299,7 +387,13 @@ def main() -> None:
                 finish_result(index, result)
                 break
 
-            if not DRY_RUN:
+            if DRY_RUN:
+                result["status"] = "simulated"
+            elif len(recipients) > 1:
+                result["status"], group_error = send_group_message(recipients, body)
+                if group_error:
+                    result["error"] = group_error
+            else:
                 if frontmost_app_name() != "Messages":
                     result["error"] = "Messages lost focus before this text could be entered. Nothing was pasted or sent."
                     result["sent_at"] = timestamp()
@@ -310,8 +404,8 @@ def main() -> None:
                 clipboard_restored = type_and_send(body)
                 if not clipboard_restored:
                     result["error"] = "Text was submitted, but the prior clipboard text could not be restored."
+                result["status"] = "submitted"
 
-            result["status"] = "simulated" if DRY_RUN else "submitted"
             result["sent_at"] = timestamp()
             finish_result(index, result)
 

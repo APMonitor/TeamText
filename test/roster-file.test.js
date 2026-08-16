@@ -5,8 +5,8 @@ import { parseRoster } from "../web/src/rosterFile.js";
 
 const matrix = [
   ["Athlete", "Parent Phone", "Team", "Profile URL"],
-  ["Ava Ramirez", "+12025550101", "U12 Blue", "https://example.com/private"],
-  ["Leo Ramirez", "+12025550101", "U12 Blue", "https://example.com/private"],
+  ["Ava Ramirez", "+12025550101; +12025550104", "U12 Blue", "https://example.com/private"],
+  ["Leo Ramirez", "+12025550101, +12025550105", "U12 Blue", "https://example.com/private"],
 ];
 
 test("CSV uploads produce roster rows without profile columns", async () => {
@@ -15,6 +15,8 @@ test("CSV uploads produce roster rows without profile columns", async () => {
   assert.deepEqual(roster.columns, ["Athlete", "Parent Phone", "Team"]);
   assert.equal(roster.rows.length, 2);
   assert.equal(roster.rows[0].values.Athlete, "Ava Ramirez");
+  assert.equal(roster.rows[0].values["Parent Phone"], "+12025550101; +12025550104");
+  assert.equal(roster.rows[1].values["Parent Phone"], "+12025550101, +12025550105");
 });
 
 for (const bookType of ["xlsx", "xls"]) {
@@ -24,6 +26,8 @@ for (const bookType of ["xlsx", "xls"]) {
     const buffer = XLSX.write(workbook, { type: "array", bookType });
     const roster = await parseRoster(buffer);
     assert.equal(roster.rows.length, 2);
+    assert.equal(roster.rows[0].values["Parent Phone"], "+12025550101; +12025550104");
     assert.equal(roster.rows[1].values.Athlete, "Leo Ramirez");
+    assert.equal(roster.rows[1].values["Parent Phone"], "+12025550101, +12025550105");
   });
 }

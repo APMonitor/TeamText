@@ -4,6 +4,7 @@ import { fieldKey, parseRoster } from "./rosterFile.js";
 
 const ACTIVE = new Set(["starting", "running", "pausing", "paused", "resuming", "stopping"]);
 const RESERVED_TOKENS = new Set(["athlete_names", "athlete_count"]);
+const MAX_GROUP_RECIPIENTS = 20;
 const OPERATORS = [
   ["contains", "contains"],
   ["one_of", "is one of"],
@@ -183,6 +184,7 @@ function App() {
     phoneColumn,
     columns,
   }), [recipientRows, deliveryMode, nameColumn, phoneColumn, columns]);
+  const hasGroupTexts = recipientUnits.some((unit) => unit.recipientCount > 1);
   const summaries = useMemo(() => recipientUnits.map((unit, index) => {
     const body = mergeMessage(templateBody, unit.values, tokens, {
       athlete_names: unit.athleteNames,
@@ -192,9 +194,10 @@ function App() {
     const missingNames = unit.rows.filter((row) => !clean(row.values[nameColumn])).length;
     if (missingNames) issues.push(missingNames === 1 ? "missing athlete name" : `${missingNames} missing athlete names`);
     else if (unit.name.length > 240) issues.push("athlete names are too long");
-    if (!unit.address) issues.push("missing text number");
-    else if (unit.address.length > 160) issues.push("text number is too long");
-    else if (!looksLikeTextNumber(unit.address)) issues.push("invalid text number");
+    if (!unit.addresses.length) issues.push("missing text number");
+    else if (unit.addresses.length > MAX_GROUP_RECIPIENTS) issues.push(`group exceeds ${MAX_GROUP_RECIPIENTS} recipients`);
+    else if (unit.addresses.some((address) => address.length > 160)) issues.push("a text number is too long");
+    else if (unit.addresses.some((address) => !looksLikeTextNumber(address))) issues.push("invalid text number in recipient group");
     if (!body) issues.push("blank message");
     else if (body.length < 5) issues.push("message is too short");
     else if (body.length > 10000) issues.push("message is too long");
@@ -366,7 +369,7 @@ function App() {
     const targets = ready.map((summary) => ({
       id: summary.id,
       recipient_label: summary.name,
-      address: summary.address,
+      addresses: summary.addresses,
       body: summary.body,
     }));
     setError("");
@@ -502,7 +505,7 @@ function App() {
                 {columns.map((column) => <option value={column} key={column}>{column}</option>)}
               </select>
             </label>
-            <label htmlFor="phone-column">Text number column
+            <label htmlFor="phone-column">Text number column (separate group members with ; or ,)
               <select id="phone-column" value={phoneColumn} onChange={(event) => { setPhoneColumn(event.target.value); resetResults(); }} disabled={locked}>
                 <option value="" disabled>Choose a text number column…</option>
                 {columns.map((column) => <option value={column} key={column}>{column}</option>)}
@@ -578,7 +581,7 @@ function App() {
                 checked={deliveryMode === "individual"}
                 onChange={() => { setDeliveryMode("individual"); resetResults(); }}
               />
-              <span><strong>One text per athlete</strong><small>Each included roster row gets its own personalized message.</small></span>
+              <span><strong>One text per athlete</strong><small>Multiple numbers in one cell receive a single group text.</small></span>
             </label>
             <label className={deliveryMode === "household" ? "selected" : ""}>
               <input
@@ -588,10 +591,14 @@ function App() {
                 checked={deliveryMode === "household"}
                 onChange={() => { setDeliveryMode("household"); resetResults(); }}
               />
-              <span><strong>One text per household</strong><small>Rows sharing a text number are combined into one message.</small></span>
+              <span><strong>One text per household</strong><small>Rows with the same complete set of numbers are combined.</small></span>
             </label>
           </div>
         </fieldset>
+
+        {hasGroupTexts && <div className="group-warning" role="note">
+          <strong>Group text visibility:</strong> Everyone in a group can see the other recipients, and replies may go to everyone.
+        </div>}
 
         <div className="merge-fields"><span>Insert roster field</span><div>
           {columns.map((column) => <button type="button" className="merge-chip" key={column} onClick={() => insertField(column)} disabled={locked} title={`Insert {{${tokens[column]}}}`}>{column}</button>)}
@@ -612,7 +619,7 @@ function App() {
 
         <section className="message-summary" aria-labelledby="summary-title">
           <div className="summary-heading">
-            <div><h3 id="summary-title">Message summary</h3><p>One personalized preview and send status for every {deliveryMode === "household" ? "household" : "included athlete"}.</p></div>
+            <div><h3 id="summary-title">Message summary</h3><p>One personalized preview and send status for every {deliveryMode === "household" ? "household recipient group" : "included athlete"}.</p></div>
             <span className={`run-status status-${statusKey(sendStatus)}`} role="status" aria-live="polite">{runNote || (active ? statusText(sendStatus) : "Ready when you are")}</span>
           </div>
           <div className="summary-list">
@@ -626,7 +633,7 @@ function App() {
                   ? "Not sent"
                   : "Ready to send";
               return <article className="summary-row" key={summary.id}>
-                <div className="summary-recipient"><strong>{summary.name}</strong><span>{summary.address || "No text number"}{deliveryMode === "household" && summary.rows.length > 1 ? ` · ${summary.athleteCount} athletes` : ""}</span></div>
+                <div className="summary-recipient"><strong>{summary.name}</strong><span>{summary.address || "No text number"}{deliveryMode === "household" && summary.rows.length > 1 ? ` · ${summary.athleteCount} athletes` : ""}{summary.recipientCount > 1 ? ` · ${summary.recipientCount} recipients · group text` : ""}</span></div>
                 <span className={`status-pill status-${statusKey(status)}`}>{statusText(status)}</span>
                 <p className="summary-message">{summary.body || "Message is blank."}</p>
                 <small className={summary.issues.length || result?.error ? "summary-error" : ""}>{summary.issues.join(" · ") || result?.error || result?.sent_at || fallbackDetail}</small>

@@ -63,21 +63,59 @@ try {
       pauseBetween: 0,
       pauseAfterSend: 0,
       targets: [{
-        id: "smoke-1",
-        recipient_label: "Example parent",
-        address: "+12025550101",
-        body: "TeamText dry-run smoke check.",
+        id: "smoke-group-1",
+        recipient_label: "Example parent group",
+        addresses: ["+12025550101", "+12025550104"],
+        body: "TeamText group dry-run smoke check.",
       }],
     }),
   });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || `Smoke send failed with HTTP ${response.status}.`);
-  if (!result.dryRun || result.results?.[0]?.status !== "simulated") {
-    throw new Error(`Expected one simulated result, received ${JSON.stringify(result)}.`);
+  if (!result.dryRun || result.results?.length !== 1 || result.results[0]?.status !== "simulated") {
+    throw new Error(`Expected one simulated group result, received ${JSON.stringify(result)}.`);
   }
   const serialized = JSON.stringify(result);
-  if (serialized.includes("+12025550101") || serialized.includes("TeamText dry-run smoke check.")) {
+  if (
+    serialized.includes("+12025550101")
+    || serialized.includes("+12025550104")
+    || serialized.includes("TeamText group dry-run smoke check.")
+  ) {
     throw new Error("The public send result exposed private target data.");
+  }
+
+  const invalidResponse = await fetch(`${baseUrl}/api/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      targets: [{
+        id: "combined-address",
+        recipient_label: "Combined address should fail",
+        address: "+12025550101; +12025550104",
+        body: "This combined target must be rejected.",
+      }],
+    }),
+  });
+  const invalidResult = await invalidResponse.json();
+  if (invalidResponse.status !== 400 || !invalidResult.invalidTargets?.[0]?.issues?.includes("each address must contain exactly one phone number")) {
+    throw new Error("The API accepted an unstructured delimiter-bearing address.");
+  }
+
+  const duplicateResponse = await fetch(`${baseUrl}/api/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      targets: [{
+        id: "duplicate-group-member",
+        recipient_label: "Duplicate group should fail",
+        addresses: ["+12025550101", "(202) 555-0101"],
+        body: "This duplicate group must be rejected.",
+      }],
+    }),
+  });
+  const duplicateResult = await duplicateResponse.json();
+  if (duplicateResponse.status !== 400 || !duplicateResult.invalidTargets?.[0]?.issues?.includes("addresses must be unique within a group")) {
+    throw new Error("The API accepted a duplicate group recipient.");
   }
   console.log("TeamText dry-run sender smoke test passed.");
 } catch (error) {
