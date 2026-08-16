@@ -2,7 +2,7 @@
 
 TeamText is a local, macOS-only app for sending personalized roster messages through Apple Messages. Upload a CSV or Excel roster, filter it to the people you need, preview each message, and then submit the batch from the Mac that is running TeamText.
 
-<img src="examples/teamtext.png" alt="Description" style="width: 100%; height: auto;">
+<img src="examples/teamtext.png" alt="Team Text" style="width: 100%; height: auto;">
 
 TeamText supports two delivery modes:
 
@@ -93,6 +93,8 @@ SMS_DRY_RUN=1 npm start
 
 Stop that process with `Control-C` and restart with `npm start` when you are ready to send real messages.
 
+<img src="examples/2-roster.png" alt="Roster Review" style="width: 100%; height: auto;">
+
 ## Prepare a roster
 
 TeamText accepts `.csv`, `.xls`, and `.xlsx` files. The first row must contain column names, and each remaining row should represent one athlete. Include at least:
@@ -115,6 +117,8 @@ The two Ramirez rows intentionally share a phone number. This allows household m
 
 A fabricated copy of this roster is included at [`examples/team-roster.example.csv`](examples/team-roster.example.csv). The numbers use the reserved `202-555-01xx` fictional range. Never commit or attach a real team roster.
 
+<img src="examples/3-message.png" alt="Send Message" style="width: 100%; height: auto;">
+
 ## Send a message
 
 1. Start TeamText and open its local URL.
@@ -125,6 +129,8 @@ A fabricated copy of this roster is included at [`examples/team-roster.example.c
 6. Enter a template name and message. Select the roster-field buttons to insert merge fields safely.
 7. Read the message summary at the bottom. Rows with missing numbers, invalid merge fields, or other problems are skipped and identified there.
 8. Keep the Mac awake and unlocked, avoid using the keyboard or mouse while the batch is active, and select **Send**.
+
+<img src="examples/4-send.png" alt="Send Summary" style="width: 100%; height: auto;">
 
 Messages may take several seconds each because TeamText deliberately waits for Messages to open and become active before submitting the next text.
 
