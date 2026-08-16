@@ -102,7 +102,7 @@ TeamText accepts `.csv`, `.xls`, and `.xlsx` files. The first row must contain c
 - An athlete-name column
 - A parent or guardian text-number column
 
-Other columns—such as parent name, team, grade, event, or practice group—can be used as filters and message merge fields. Store phone numbers as text when possible; international E.164 format such as `+12025550101` is the least ambiguous.
+Other columns—such as parent name, team, grade, event, or practice group—can be used as filters and message merge fields. Store phone numbers as text when possible; international E.164 format such as `+12025550101` is the least ambiguous. A group text is created when the numbers are separated by a comma or semi-colon delimiter such as `+12025550101;+12025550103`.
 
 Example roster:
 
@@ -115,7 +115,7 @@ Example roster:
 
 The two Ramirez rows intentionally share a phone number. This allows household mode to combine Ava and Leo into a single message to Morgan.
 
-A fabricated copy of this roster is included at [`examples/team-roster.example.csv`](examples/team-roster.example.csv). The numbers use the reserved `202-555-01xx` fictional range. Never commit or attach a real team roster.
+A fabricated copy of this roster is included at [`examples/team-roster.example.csv`](examples/team-roster.example.csv). The numbers use the reserved `202-555-01xx` fictional range.
 
 <img src="examples/3-message.png" alt="Send Message" style="width: 100%; height: auto;">
 
