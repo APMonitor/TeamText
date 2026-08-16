@@ -2,6 +2,8 @@
 
 TeamText is a local, macOS-only app for sending personalized roster messages through Apple Messages. Upload a CSV or Excel roster, filter it to the people you need, preview each message, and then submit the batch from the Mac that is running TeamText.
 
+<img src="examples/teamtext.png" alt="Description" style="width: 100%; height: auto;">
+
 TeamText supports two delivery modes:
 
 - **One text per athlete** creates a separate personalized message for every included roster row.
