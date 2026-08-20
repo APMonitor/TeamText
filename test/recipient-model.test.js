@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildRecipientUnits, naturalList, splitTextNumbers } from "../web/src/recipientModel.js";
+import { buildRecipientUnits, firstName, naturalList, splitTextNumbers } from "../web/src/recipientModel.js";
 
 const columns = ["Athlete", "Parent Name", "Parent Phone", "Team"];
 const rows = [
@@ -45,6 +45,39 @@ test("invalid or missing phone values never collapse unrelated rows", () => {
 
 test("natural lists are readable and remove duplicate values", () => {
   assert.equal(naturalList(["Ava", "Leo", "Jordan", "ava"]), "Ava, Leo, and Jordan");
+});
+
+test("first names are derived from standard and last-name-first values", () => {
+  assert.equal(firstName("Ava Ramirez"), "Ava");
+  assert.equal(firstName("Ramirez, Leo M."), "Leo");
+  assert.equal(firstName("Jordan"), "Jordan");
+});
+
+test("household aggregation can use first names in previews and merge values", () => {
+  const units = buildRecipientUnits({
+    rows: rows.slice(0, 2),
+    deliveryMode: "household",
+    nameColumn: "Athlete",
+    phoneColumn: "Parent Phone",
+    columns,
+    householdNameFormat: "first",
+  });
+  assert.equal(units[0].athleteNames, "Ava and Leo");
+  assert.equal(units[0].name, "Ava and Leo");
+  assert.equal(units[0].values.Athlete, "Ava and Leo");
+});
+
+test("individual messages keep uploaded names when household first-name formatting is selected", () => {
+  const units = buildRecipientUnits({
+    rows: rows.slice(0, 1),
+    deliveryMode: "individual",
+    nameColumn: "Athlete",
+    phoneColumn: "Parent Phone",
+    columns,
+    householdNameFormat: "first",
+  });
+  assert.equal(units[0].athleteNames, "Ava Ramirez");
+  assert.equal(units[0].values.Athlete, "Ava Ramirez");
 });
 
 test("comma and semicolon group members are parsed and normalized duplicates are removed", () => {
