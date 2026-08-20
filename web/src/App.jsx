@@ -162,6 +162,7 @@ function App() {
   const [templateName, setTemplateName] = useState("");
   const [templateBody, setTemplateBody] = useState("");
   const [deliveryMode, setDeliveryMode] = useState("individual");
+  const [householdNameFormat, setHouseholdNameFormat] = useState("full");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -183,7 +184,8 @@ function App() {
     nameColumn,
     phoneColumn,
     columns,
-  }), [recipientRows, deliveryMode, nameColumn, phoneColumn, columns]);
+    householdNameFormat,
+  }), [recipientRows, deliveryMode, nameColumn, phoneColumn, columns, householdNameFormat]);
   const hasGroupTexts = recipientUnits.some((unit) => unit.recipientCount > 1);
   const summaries = useMemo(() => recipientUnits.map((unit, index) => {
     const body = mergeMessage(templateBody, unit.values, tokens, {
@@ -594,6 +596,17 @@ function App() {
               <span><strong>One text per household</strong><small>Rows with the same complete set of numbers are combined.</small></span>
             </label>
           </div>
+          {deliveryMode === "household" && <label className="household-name-format" htmlFor="household-name-format">
+            <span><strong>Names in family messages</strong><small>Controls aggregated names in previews and merge fields.</small></span>
+            <select
+              id="household-name-format"
+              value={householdNameFormat}
+              onChange={(event) => { setHouseholdNameFormat(event.target.value); resetResults(); }}
+            >
+              <option value="full">Names — Ava Ramirez and Leo Ramirez</option>
+              <option value="first">First names — Ava and Leo</option>
+            </select>
+          </label>}
         </fieldset>
 
         {hasGroupTexts && <div className="group-warning" role="note">

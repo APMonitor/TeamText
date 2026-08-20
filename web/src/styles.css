@@ -597,6 +597,36 @@ th.include-column {
   opacity: 0.56;
 }
 
+.household-name-format {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) minmax(280px, 0.8fr);
+  gap: 0.8rem;
+  align-items: center;
+  margin-top: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.72rem 0.85rem;
+  background: rgba(255, 255, 255, 0.022);
+}
+
+.household-name-format > span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.household-name-format strong {
+  font-size: 0.84rem;
+}
+
+.household-name-format small {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.household-name-format select {
+  padding-block: 0.6rem;
+}
+
 .merge-fields {
   display: flex;
   align-items: flex-start;
@@ -862,7 +892,8 @@ th.include-column {
 
   .mapping-controls,
   .template-fields,
-  .mode-options {
+  .mode-options,
+  .household-name-format {
     grid-template-columns: 1fr;
   }
 

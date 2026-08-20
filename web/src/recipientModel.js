@@ -19,6 +19,14 @@ export function naturalList(values) {
   return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
+export function firstName(value) {
+  const name = clean(value);
+  if (!name) return "";
+  const commaIndex = name.indexOf(",");
+  const firstNamePart = commaIndex >= 0 ? clean(name.slice(commaIndex + 1)) : name;
+  return firstNamePart.split(/\s+/)[0] || name;
+}
+
 export function aggregateValues(rows, columns) {
   return Object.fromEntries(columns.map((column) => [
     column,
@@ -59,7 +67,7 @@ export function splitTextNumbers(value) {
   });
 }
 
-export function buildRecipientUnits({ rows, deliveryMode, nameColumn, phoneColumn, columns }) {
+export function buildRecipientUnits({ rows, deliveryMode, nameColumn, phoneColumn, columns, householdNameFormat = "full" }) {
   if (deliveryMode === "individual") {
     return rows.map((row) => {
       const athleteName = clean(row.values[nameColumn]);
@@ -93,10 +101,12 @@ export function buildRecipientUnits({ rows, deliveryMode, nameColumn, phoneColum
 
   return [...households.values()].map((household, index) => {
     const householdRows = household.rows;
-    const athleteNames = naturalList(householdRows.map((row) => row.values[nameColumn]));
+    const householdNames = householdRows.map((row) => row.values[nameColumn]);
+    const athleteNames = naturalList(householdNameFormat === "first" ? householdNames.map(firstName) : householdNames);
     const sourceRows = naturalList(householdRows.map((row) => String(row.sourceRow)));
     const values = aggregateValues(householdRows, columns);
     const address = household.addresses.join("; ");
+    values[nameColumn] = athleteNames;
     values[phoneColumn] = address;
     return {
       id: `household-${index + 1}`,
